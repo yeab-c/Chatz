@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router'
+import { Stack, useLocalSearchParams } from 'expo-router'
 import React, { useEffect, useRef, useState } from 'react'
 import {
     FlatList,
@@ -40,6 +40,14 @@ const MOCK_MESSAGES = [
   { id: '24', text: 'Will do. Thanks!', sender: 'me' },
 ]
 
+const replies = [
+  "Got it!",
+  "Sounds good 👍",
+  "Cool!",
+  "Haha 😄",
+  "Let me check",
+]
+
 
 export default function ChatRoom() {
   const { chatId } = useLocalSearchParams()
@@ -52,7 +60,18 @@ export default function ChatRoom() {
     const showSub = Keyboard.addListener('keyboardDidShow', () => {
         flatListRef.current?.scrollToEnd({animated: true})
     })
+    return () => showSub.remove()
   }, [])
+
+  const simulateIncomingMessage = () => {
+    const newMessage = {
+        id: Date.now().toString(),
+        text: replies[Math.floor(Math.random() * replies.length)],
+        sender: "other",
+    }
+
+    setMessages((prev) => [...prev, newMessage])
+  }
 
   const sendMessage = () => {
         if (!message.trim()) return
@@ -65,58 +84,65 @@ export default function ChatRoom() {
 
         setMessages((prev) => [...prev, newMessage])
         setMessage('')
+        setTimeout(simulateIncomingMessage, 1500)
     }
 
+    
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Chat {chatId}</Text>
-      </View>
+    <>
+        <Stack.Screen options={{ title: "Chatz" }} />
+        <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        >
+        <View style={styles.header}>
+            <Text style={styles.headerText}>Chat {chatId}</Text>
+        </View>
 
-      <FlatList
-        ref={flatListRef}
-        data={ messages }
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.messages}
-        keyboardDismissMode='interactive'
-        keyboardShouldPersistTaps='handled'
-        onContentSizeChange={() =>
-            flatListRef.current?.scrollToEnd({animated: true})
-        }
-        renderItem={({ item }) => {
-          const isMe = item.sender === 'me'
-          return (
-            <View
-              style={[
-                styles.messageBubble,
-                isMe ? styles.myMessage : styles.otherMessage,
-              ]}
-            >
-              <Text style={styles.messageText}>{item.text}</Text>
-            </View>
-          )
-        }}
-      />
-
-      <View style={styles.inputBar}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type a message..."
-          placeholderTextColor="#94A3B8"
-          value={message}
-          onChangeText={setMessage}
+        <FlatList
+            ref={flatListRef}
+            data={ messages }
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.messages}
+            keyboardDismissMode='interactive'
+            keyboardShouldPersistTaps='handled'
+            onContentSizeChange={() =>
+                flatListRef.current?.scrollToEnd({animated: true})
+            }
+            renderItem={({ item }) => {
+            const isMe = item.sender === 'me'
+            return (
+                <View
+                style={[
+                    styles.messageBubble,
+                    isMe ? styles.myMessage : styles.otherMessage,
+                ]}
+                >
+                <Text style={styles.messageText}>{item.text}</Text>
+                </View>
+            )
+            }}
         />
-        <TouchableOpacity style={styles.sendButton} onPress={() => {
-          sendMessage()
-        }}>
-          <Text style={styles.sendText}>Send</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+
+        <View style={styles.inputBar}>
+            <TextInput
+            style={styles.input}
+            placeholder="Type a message..."
+            placeholderTextColor="#94A3B8"
+            value={message}
+            onChangeText={setMessage}
+            />
+            <TouchableOpacity style={styles.sendButton} onPress={() => {
+            sendMessage()
+            }}>
+            <Text style={styles.sendText}>Send</Text>
+            </TouchableOpacity>
+        </View>
+        </KeyboardAvoidingView>
+    </>
+
   )
 }
 
