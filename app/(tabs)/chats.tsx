@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import React from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -17,7 +18,7 @@ const ChatsScreen = () => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.chatItem}>
+          <TouchableOpacity style={styles.chatItem} onPress={() => router.push({ pathname: `/chat/[chatId]`, params: { chatId: item.id }})}>
             <View style={styles.chatInfo}>
               <Text style={styles.chatName}>{item.name}</Text>
               <Text style={styles.lastMessage}>{item.lastMessage}</Text>
