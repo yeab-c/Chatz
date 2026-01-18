@@ -1,15 +1,15 @@
 import { Stack, useLocalSearchParams } from 'expo-router'
 import React, { useEffect, useRef, useState } from 'react'
 import {
-    FlatList,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native'
 
 
@@ -56,6 +56,7 @@ export default function ChatRoom() {
 
   const flatListRef = useRef<FlatList>(null)
 
+    // scroll to bottom on keyboard show
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => {
         flatListRef.current?.scrollToEnd({animated: true})
@@ -63,6 +64,7 @@ export default function ChatRoom() {
     return () => showSub.remove()
   }, [])
 
+  // simulate incoming message
   const simulateIncomingMessage = () => {
     const newMessage = {
         id: Date.now().toString(),
@@ -73,6 +75,7 @@ export default function ChatRoom() {
     setMessages((prev) => [...prev, newMessage])
   }
 
+  // send message
   const sendMessage = () => {
         if (!message.trim()) return
 
@@ -94,12 +97,9 @@ export default function ChatRoom() {
         <Stack.Screen options={{ title: "Chatz" }} />
         <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
-        <View style={styles.header}>
-            <Text style={styles.headerText}>Chat {chatId}</Text>
-        </View>
 
         <FlatList
             ref={flatListRef}
@@ -185,9 +185,11 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     padding: 12,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 24,
     borderTopWidth: 1,
     borderTopColor: '#1E293B',
     alignItems: 'center',
+    backgroundColor: '#0F172A',
   },
   input: {
     flex: 1,

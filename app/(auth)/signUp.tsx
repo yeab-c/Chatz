@@ -1,9 +1,117 @@
-import React from 'react'
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { useSignUp } from '@clerk/clerk-expo'
+import { Link, useRouter } from 'expo-router'
+import React, { useState } from 'react'
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 
-import { Link } from 'expo-router'
+export default function SignUpScreen() {
+  const { isLoaded, signUp, setActive } = useSignUp()
+  const router = useRouter()
 
-const signUp = () => {
+  const [name, setName] = useState('')
+  const [emailAddress, setEmailAddress] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pendingVerification, setPendingVerification] = useState(false)
+  const [code, setCode] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const validateEmail = (email: string) => /\S+@\S+\.\S+/.test(email)
+  const validatePassword = (pw: string) => pw.length >= 8
+
+  const onSignUpPress = async () => {
+    if (!isLoaded) return
+    
+    if (!name.trim()) {
+      return Alert.alert("Name required", "Please enter your name.")
+    }
+    if (!validateEmail(emailAddress)) {
+      return Alert.alert("Invalid email", "Please enter a valid email address.")
+    }
+    if (!validatePassword(password)) {
+      return Alert.alert("Weak password", "Password must be at least 8 characters.")
+    }
+    if (password !== confirmPassword) {
+      return Alert.alert("Password mismatch", "Passwords do not match.")
+    }
+
+    setLoading(true)
+    try {
+      await signUp.create({ 
+        emailAddress, 
+        password,
+        firstName: name.split(' ')[0],
+        lastName: name.split(' ').slice(1).join(' ') || undefined
+      })
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+      setPendingVerification(true)
+    } catch (err: any) {
+      if (err.clerkError) {
+        Alert.alert("Error", err.errors?.[0]?.longMessage || "Something went wrong")
+      }
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const onVerifyPress = async () => {
+    if (!isLoaded) return
+
+    if (!code.trim()) {
+      return Alert.alert("Code required", "Please enter the verification code.")
+    }
+
+    setLoading(true)
+    try {
+      const signUpAttempt = await signUp.attemptEmailAddressVerification({ code })
+      if (signUpAttempt.status === 'complete') {
+        await setActive({ session: signUpAttempt.createdSessionId })
+        router.replace('/(tabs)/chats')
+      } else {
+        Alert.alert("Verification incomplete", "Please check the code and try again.")
+      }
+    } catch (err: any) {
+      if (err.clerkError) {
+        Alert.alert("Error", err.errors?.[0]?.longMessage || "Something went wrong")
+      }
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (pendingVerification) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <Text style={styles.title}>Verify Email</Text>
+          <Text style={styles.subtitle}>Enter the code sent to {emailAddress}</Text>
+
+          <TextInput
+            value={code}
+            placeholder="Verification code"
+            placeholderTextColor="#9CA3AF"
+            onChangeText={setCode}
+            style={styles.input}
+            keyboardType="number-pad"
+          />
+
+          <TouchableOpacity 
+            onPress={onVerifyPress} 
+            style={[styles.button, loading && styles.buttonDisabled]}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.buttonText}>Verify</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    )
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
@@ -13,34 +121,50 @@ const signUp = () => {
 
           <View style={styles.inputContainer}>
             <TextInput
-              style={styles.input}
-              placeholder="Name"
+              value={name}
+              placeholder="Full Name"
               placeholderTextColor="#9CA3AF"
+              onChangeText={setName}
+              style={styles.input}
               autoCapitalize="words"
             />
             <TextInput
-              style={styles.input}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={emailAddress}
               placeholder="Email"
               placeholderTextColor="#9CA3AF"
-              keyboardType="email-address"
-              autoCapitalize="none"
+              onChangeText={setEmailAddress}
+              style={styles.input}
             />
             <TextInput
-              style={styles.input}
+              value={password}
               placeholder="Password"
               placeholderTextColor="#9CA3AF"
               secureTextEntry
+              onChangeText={setPassword}
+              style={styles.input}
             />
             <TextInput
-              style={styles.input}
+              value={confirmPassword}
               placeholder="Confirm Password"
               placeholderTextColor="#9CA3AF"
               secureTextEntry
+              onChangeText={setConfirmPassword}
+              style={styles.input}
             />
           </View>
 
-          <TouchableOpacity style={styles.button}>
-            <Text style={styles.buttonText}>Sign Up</Text>
+          <TouchableOpacity 
+            onPress={onSignUpPress} 
+            style={[styles.button, loading && styles.buttonDisabled]}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.buttonText}>Sign Up</Text>
+            )}
           </TouchableOpacity>
 
           <View style={styles.divider}>
@@ -51,11 +175,11 @@ const signUp = () => {
 
           <View style={styles.signInContainer}>
             <Text style={styles.signInText}>Already have an account? </Text>
-            <TouchableOpacity>
-                <Link href="/(auth)/signIn">
-                  <Text style={styles.signInLink}>Sign In</Text>
-                </Link>
-            </TouchableOpacity>
+            <Link href="/(auth)/signIn" asChild>
+              <TouchableOpacity>
+                <Text style={styles.signInLink}>Sign In</Text>
+              </TouchableOpacity>
+            </Link>
           </View>
         </View>
       </View>
@@ -111,6 +235,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
@@ -146,5 +273,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 })
-
-export default signUp

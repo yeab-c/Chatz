@@ -1,8 +1,111 @@
-import { Link } from 'expo-router'
-import React from 'react'
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { useSignIn } from '@clerk/clerk-expo'
+import { Link, useRouter } from 'expo-router'
+import React, { useState } from 'react'
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 
-const signIn = () => {
+export default function SignInScreen() {
+  const { signIn, setActive, isLoaded } = useSignIn()
+  const router = useRouter()
+
+  const [emailAddress, setEmailAddress] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const validateEmail = (email: string) => /\S+@\S+\.\S+/.test(email)
+
+  const onSignInPress = async () => {
+    // Check if Clerk is loaded
+    if (!isLoaded) {
+      Alert.alert("Loading", "Please wait a moment and try again.")
+      return
+    }
+
+    // Validate email
+    if (!emailAddress.trim()) {
+      Alert.alert("Email required", "Please enter your email address.")
+      return
+    }
+    if (!validateEmail(emailAddress)) {
+      Alert.alert("Invalid email", "Please enter a valid email address.")
+      return
+    }
+
+    // Validate password
+    if (!password) {
+      Alert.alert("Password required", "Please enter your password.")
+      return
+    }
+    if (password.length < 8) {
+      Alert.alert("Invalid password", "Password must be at least 8 characters.")
+      return
+    }
+
+    setLoading(true)
+    try {
+      const signInAttempt = await signIn.create({ 
+        identifier: emailAddress.trim().toLowerCase(), 
+        password 
+      })
+
+      if (signInAttempt.status === 'complete') {
+        await setActive({ session: signInAttempt.createdSessionId })
+        router.replace('/(tabs)/chats')
+      } else if (signInAttempt.status === 'needs_first_factor') {
+        Alert.alert("Verification needed", "Please complete two-factor authentication.")
+      } else if (signInAttempt.status === 'needs_second_factor') {
+        Alert.alert("Verification needed", "Please complete second factor authentication.")
+      } else {
+        Alert.alert("Sign-in incomplete", "Unable to complete sign-in. Please try again.")
+      }
+    } catch (err: any) {
+      console.error("Sign-in error:", JSON.stringify(err, null, 2))
+
+      // Handle Clerk-specific errors
+      if (err.errors && err.errors.length > 0) {
+        const error = err.errors[0]
+        
+        // Handle specific error codes
+        switch (error.code) {
+          case 'form_identifier_not_found':
+            Alert.alert("Account not found", "No account exists with this email address.")
+            break
+          case 'form_password_incorrect':
+            Alert.alert("Incorrect password", "The password you entered is incorrect.")
+            break
+          case 'form_param_format_invalid':
+            Alert.alert("Invalid format", "Please check your email and password format.")
+            break
+          case 'strategy_for_user_invalid':
+            Alert.alert("Sign-in method unavailable", "This sign-in method is not available for your account.")
+            break
+          case 'session_exists':
+            Alert.alert("Already signed in", "You are already signed in.")
+            router.replace('/(tabs)/chats')
+            break
+          case 'user_locked':
+            Alert.alert("Account locked", "Your account has been locked. Please contact support.")
+            break
+          default:
+            Alert.alert("Error", error.longMessage || error.message || "Something went wrong during sign-in.")
+        }
+      } else if (err.status === 401) {
+        Alert.alert("Invalid credentials", "Email or password is incorrect.")
+      } else if (err.status === 422) {
+        Alert.alert("Invalid input", "Please check your email and password.")
+      } else if (err.status === 429) {
+        Alert.alert("Too many attempts", "You've made too many sign-in attempts. Please try again later.")
+      } else if (err.status >= 500) {
+        Alert.alert("Server error", "Our servers are experiencing issues. Please try again later.")
+      } else if (err.message) {
+        Alert.alert("Error", err.message)
+      } else {
+        Alert.alert("Error", "An unexpected error occurred. Please try again.")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
@@ -11,26 +114,40 @@ const signIn = () => {
 
         <View style={styles.inputContainer}>
           <TextInput
-            style={styles.input}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={emailAddress}
             placeholder="Email"
             placeholderTextColor="#9CA3AF"
-            keyboardType="email-address"
-            autoCapitalize="none"
+            onChangeText={setEmailAddress}
+            style={styles.input}
+            editable={!loading}
           />
           <TextInput
-            style={styles.input}
+            value={password}
             placeholder="Password"
             placeholderTextColor="#9CA3AF"
             secureTextEntry
+            onChangeText={setPassword}
+            style={styles.input}
+            editable={!loading}
           />
         </View>
 
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Sign In</Text>
+        <TouchableOpacity 
+          onPress={onSignInPress} 
+          style={[styles.button, loading && styles.buttonDisabled]}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.buttonText}>Sign In</Text>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity>
-          <Text style={styles.linkText}>Forgot password?</Text>
+        <TouchableOpacity disabled={loading}>
+          <Text style={[styles.linkText, loading && styles.linkDisabled]}>Forgot password?</Text>
         </TouchableOpacity>
 
         <View style={styles.divider}>
@@ -41,11 +158,11 @@ const signIn = () => {
 
         <View style={styles.signUpContainer}>
           <Text style={styles.signUpText}>Don't have an account? </Text>
-          <TouchableOpacity>
-            <Link href="/(auth)/signUp">
-              <Text style={styles.signUpLink}>Sign Up</Text>
-            </Link>
-          </TouchableOpacity>
+          <Link href="/(auth)/signUp" asChild>
+            <TouchableOpacity disabled={loading}>
+              <Text style={[styles.signUpLink, loading && styles.linkDisabled]}>Sign Up</Text>
+            </TouchableOpacity>
+          </Link>
         </View>
       </View>
     </View>
@@ -96,6 +213,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
@@ -105,6 +225,9 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
     fontSize: 14,
     textAlign: 'center',
+  },
+  linkDisabled: {
+    opacity: 0.5,
   },
   divider: {
     flexDirection: 'row',
@@ -136,5 +259,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 })
-
-export default signIn

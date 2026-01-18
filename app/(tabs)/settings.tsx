@@ -1,5 +1,6 @@
 import React from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { SignOutButton } from '../components/SignOutButton'
 
 const settingsOptions = [
   { id: '1', label: 'Account' },
@@ -25,9 +26,7 @@ const Settings = () => {
       </View>
 
       <View style={styles.dangerZone}>
-        <TouchableOpacity style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Log Out</Text>
-        </TouchableOpacity>
+        <SignOutButton />
       </View>
     </ScrollView>
   )

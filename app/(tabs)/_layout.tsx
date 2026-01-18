@@ -13,9 +13,9 @@ export default function RootLayout() {
               backgroundColor: "#1E293B",
               borderTopWidth: 0,
               borderTopColor: "transparent",
-              height: 60,
-              paddingBottom: 6,
-              paddingTop: 6,
+              height: 90,
+              paddingBottom: 30,
+              paddingTop: 10,
           },
           headerShown: false,
         }}

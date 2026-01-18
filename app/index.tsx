@@ -1,12 +1,9 @@
+import { useAuth } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
-import { useState } from "react";
 
 export default function Index() {
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const { isSignedIn } = useAuth();
 
-  if (!isLoggedIn) {
-    return <Redirect href="/(auth)/signIn" />;
-  }
-
+  if (!isSignedIn) return <Redirect href="/(auth)/signIn" />;
   return <Redirect href="/(tabs)/chats" />;
 }
