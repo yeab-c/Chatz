@@ -19,62 +19,222 @@ export default function SignUpScreen() {
   const validatePassword = (pw: string) => pw.length >= 8
 
   const onSignUpPress = async () => {
-    if (!isLoaded) return
+    // Check if Clerk is loaded
+    if (!isLoaded) {
+      Alert.alert("Loading", "Please wait a moment and try again.")
+      return
+    }
     
+    // Validate name
     if (!name.trim()) {
-      return Alert.alert("Name required", "Please enter your name.")
+      Alert.alert("Name required", "Please enter your full name.")
+      return
+    }
+    if (name.trim().length < 2) {
+      Alert.alert("Invalid name", "Name must be at least 2 characters.")
+      return
+    }
+
+    // Validate email
+    if (!emailAddress.trim()) {
+      Alert.alert("Email required", "Please enter your email address.")
+      return
     }
     if (!validateEmail(emailAddress)) {
-      return Alert.alert("Invalid email", "Please enter a valid email address.")
+      Alert.alert("Invalid email", "Please enter a valid email address.")
+      return
+    }
+
+    // Validate password
+    if (!password) {
+      Alert.alert("Password required", "Please enter a password.")
+      return
     }
     if (!validatePassword(password)) {
-      return Alert.alert("Weak password", "Password must be at least 8 characters.")
+      Alert.alert("Weak password", "Password must be at least 8 characters long.")
+      return
+    }
+    if (!/[A-Z]/.test(password)) {
+      Alert.alert("Weak password", "Password must contain at least one uppercase letter.")
+      return
+    }
+    if (!/[0-9]/.test(password)) {
+      Alert.alert("Weak password", "Password must contain at least one number.")
+      return
+    }
+
+    // Validate password confirmation
+    if (!confirmPassword) {
+      Alert.alert("Confirmation required", "Please confirm your password.")
+      return
     }
     if (password !== confirmPassword) {
-      return Alert.alert("Password mismatch", "Passwords do not match.")
+      Alert.alert("Password mismatch", "Passwords do not match. Please try again.")
+      return
     }
 
     setLoading(true)
     try {
+      const nameParts = name.trim().split(' ')
+      const firstName = nameParts[0]
+      const lastName = nameParts.slice(1).join(' ') || undefined
+
       await signUp.create({ 
-        emailAddress, 
+        emailAddress: emailAddress.trim().toLowerCase(), 
         password,
-        firstName: name.split(' ')[0],
-        lastName: name.split(' ').slice(1).join(' ') || undefined
+        firstName,
+        lastName
       })
+      
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
       setPendingVerification(true)
+      Alert.alert("Verification sent", "Please check your email for the verification code.")
     } catch (err: any) {
-      if (err.clerkError) {
-        Alert.alert("Error", err.errors?.[0]?.longMessage || "Something went wrong")
+      // Only log unexpected errors in development
+      if (__DEV__ && !err.errors) {
+        console.error("Sign-up error:", err)
       }
-      console.error(err)
+
+      // Handle Clerk-specific errors
+      if (err.errors && err.errors.length > 0) {
+        const error = err.errors[0]
+        
+        // Handle specific error codes
+        switch (error.code) {
+          case 'form_identifier_exists':
+            Alert.alert("Email already exists", "An account with this email already exists. Please sign in instead.")
+            break
+          case 'form_password_pwned':
+            Alert.alert("Weak password", "This password has been found in a data breach. Please choose a different password.")
+            break
+          case 'form_password_length_too_short':
+            Alert.alert("Password too short", "Password must be at least 8 characters long.")
+            break
+          case 'form_password_not_strong_enough':
+            Alert.alert("Weak password", "Please choose a stronger password with uppercase, lowercase, and numbers.")
+            break
+          case 'form_param_format_invalid':
+            Alert.alert("Invalid format", "Please check your input and try again.")
+            break
+          case 'form_param_nil':
+            Alert.alert("Missing information", "Please fill in all required fields.")
+            break
+          case 'form_param_value_invalid':
+            Alert.alert("Invalid input", "One or more fields contain invalid information.")
+            break
+          case 'form_identifier_not_found':
+            Alert.alert("Email not valid", "Please enter a valid email address.")
+            break
+          default:
+            Alert.alert("Error", error.longMessage || error.message || "Something went wrong during sign-up.")
+        }
+      } else if (err.status === 422) {
+        Alert.alert("Invalid input", "Please check your information and try again.")
+      } else if (err.status === 429) {
+        Alert.alert("Too many attempts", "You've made too many sign-up attempts. Please try again later.")
+      } else if (err.status >= 500) {
+        Alert.alert("Server error", "Our servers are experiencing issues. Please try again later.")
+      } else if (err.message) {
+        Alert.alert("Error", err.message)
+      } else {
+        Alert.alert("Error", "An unexpected error occurred. Please try again.")
+      }
     } finally {
       setLoading(false)
     }
   }
 
   const onVerifyPress = async () => {
-    if (!isLoaded) return
+    // Check if Clerk is loaded
+    if (!isLoaded) {
+      Alert.alert("Loading", "Please wait a moment and try again.")
+      return
+    }
 
+    // Validate code
     if (!code.trim()) {
-      return Alert.alert("Code required", "Please enter the verification code.")
+      Alert.alert("Code required", "Please enter the verification code.")
+      return
+    }
+    if (code.trim().length !== 6) {
+      Alert.alert("Invalid code", "Verification code must be 6 digits.")
+      return
     }
 
     setLoading(true)
     try {
-      const signUpAttempt = await signUp.attemptEmailAddressVerification({ code })
+      const signUpAttempt = await signUp.attemptEmailAddressVerification({ 
+        code: code.trim() 
+      })
+      
       if (signUpAttempt.status === 'complete') {
         await setActive({ session: signUpAttempt.createdSessionId })
+        Alert.alert("Success", "Account created successfully!")
         router.replace('/(tabs)/chats')
+      } else if (signUpAttempt.status === 'missing_requirements') {
+        Alert.alert("Additional info needed", "Please complete your profile information.")
       } else {
-        Alert.alert("Verification incomplete", "Please check the code and try again.")
+        Alert.alert("Verification incomplete", "Unable to verify your email. Please try again.")
       }
     } catch (err: any) {
-      if (err.clerkError) {
-        Alert.alert("Error", err.errors?.[0]?.longMessage || "Something went wrong")
+      // Only log unexpected errors in development
+      if (__DEV__ && !err.errors) {
+        console.error("Verification error:", err)
       }
-      console.error(err)
+
+      // Handle Clerk-specific errors
+      if (err.errors && err.errors.length > 0) {
+        const error = err.errors[0]
+        
+        // Handle specific error codes
+        switch (error.code) {
+          case 'form_code_incorrect':
+            Alert.alert("Incorrect code", "The verification code is incorrect. Please try again.")
+            break
+          case 'verification_expired':
+            Alert.alert("Code expired", "The verification code has expired. Please request a new one.")
+            setPendingVerification(false)
+            break
+          case 'verification_failed':
+            Alert.alert("Verification failed", "Unable to verify your email. Please try again.")
+            break
+          case 'too_many_attempts':
+            Alert.alert("Too many attempts", "You've entered the wrong code too many times. Please request a new one.")
+            setPendingVerification(false)
+            break
+          default:
+            Alert.alert("Error", error.longMessage || error.message || "Something went wrong during verification.")
+        }
+      } else if (err.status === 400) {
+        Alert.alert("Invalid code", "Please enter a valid 6-digit verification code.")
+      } else if (err.status === 422) {
+        Alert.alert("Invalid code", "The code you entered is invalid.")
+      } else if (err.status === 429) {
+        Alert.alert("Too many attempts", "Please wait a moment before trying again.")
+      } else if (err.status >= 500) {
+        Alert.alert("Server error", "Our servers are experiencing issues. Please try again later.")
+      } else if (err.message) {
+        Alert.alert("Error", err.message)
+      } else {
+        Alert.alert("Error", "An unexpected error occurred. Please try again.")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resendCode = async () => {
+    if (!isLoaded || loading) return
+
+    setLoading(true)
+    try {
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+      Alert.alert("Code resent", "A new verification code has been sent to your email.")
+    } catch (err: any) {
+      if (__DEV__) {
+        console.error("Resend error:", err)
+      }
+      Alert.alert("Error", "Failed to resend code. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -85,15 +245,17 @@ export default function SignUpScreen() {
       <View style={styles.container}>
         <View style={styles.content}>
           <Text style={styles.title}>Verify Email</Text>
-          <Text style={styles.subtitle}>Enter the code sent to {emailAddress}</Text>
+          <Text style={styles.subtitle}>Enter the 6-digit code sent to {emailAddress}</Text>
 
           <TextInput
             value={code}
-            placeholder="Verification code"
+            placeholder="000000"
             placeholderTextColor="#9CA3AF"
             onChangeText={setCode}
             style={styles.input}
             keyboardType="number-pad"
+            maxLength={6}
+            editable={!loading}
           />
 
           <TouchableOpacity 
@@ -106,6 +268,20 @@ export default function SignUpScreen() {
             ) : (
               <Text style={styles.buttonText}>Verify</Text>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={resendCode} disabled={loading}>
+            <Text style={[styles.linkText, loading && styles.linkDisabled]}>
+              Didn't receive code? Resend
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={() => setPendingVerification(false)} 
+            disabled={loading}
+            style={styles.backButton}
+          >
+            <Text style={[styles.backText, loading && styles.linkDisabled]}>← Back to sign up</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -127,6 +303,7 @@ export default function SignUpScreen() {
               onChangeText={setName}
               style={styles.input}
               autoCapitalize="words"
+              editable={!loading}
             />
             <TextInput
               autoCapitalize="none"
@@ -136,14 +313,16 @@ export default function SignUpScreen() {
               placeholderTextColor="#9CA3AF"
               onChangeText={setEmailAddress}
               style={styles.input}
+              editable={!loading}
             />
             <TextInput
               value={password}
-              placeholder="Password"
+              placeholder="Password (min. 8 characters)"
               placeholderTextColor="#9CA3AF"
               secureTextEntry
               onChangeText={setPassword}
               style={styles.input}
+              editable={!loading}
             />
             <TextInput
               value={confirmPassword}
@@ -152,6 +331,7 @@ export default function SignUpScreen() {
               secureTextEntry
               onChangeText={setConfirmPassword}
               style={styles.input}
+              editable={!loading}
             />
           </View>
 
@@ -176,8 +356,8 @@ export default function SignUpScreen() {
           <View style={styles.signInContainer}>
             <Text style={styles.signInText}>Already have an account? </Text>
             <Link href="/(auth)/signIn" asChild>
-              <TouchableOpacity>
-                <Text style={styles.signInLink}>Sign In</Text>
+              <TouchableOpacity disabled={loading}>
+                <Text style={[styles.signInLink, loading && styles.linkDisabled]}>Sign In</Text>
               </TouchableOpacity>
             </Link>
           </View>
@@ -242,6 +422,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  linkText: {
+    color: '#3B82F6',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  linkDisabled: {
+    opacity: 0.5,
+  },
+  backButton: {
+    marginTop: 8,
+  },
+  backText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    textAlign: 'center',
   },
   divider: {
     flexDirection: 'row',

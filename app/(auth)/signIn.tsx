@@ -14,13 +14,11 @@ export default function SignInScreen() {
   const validateEmail = (email: string) => /\S+@\S+\.\S+/.test(email)
 
   const onSignInPress = async () => {
-    // Check if Clerk is loaded
     if (!isLoaded) {
       Alert.alert("Loading", "Please wait a moment and try again.")
       return
     }
 
-    // Validate email
     if (!emailAddress.trim()) {
       Alert.alert("Email required", "Please enter your email address.")
       return
@@ -30,7 +28,6 @@ export default function SignInScreen() {
       return
     }
 
-    // Validate password
     if (!password) {
       Alert.alert("Password required", "Please enter your password.")
       return
@@ -41,11 +38,20 @@ export default function SignInScreen() {
     }
 
     setLoading(true)
+    
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        Alert.alert("Taking longer than usual", "Please check your internet connection.")
+      }
+    }, 10000)
+    
     try {
       const signInAttempt = await signIn.create({ 
         identifier: emailAddress.trim().toLowerCase(), 
         password 
       })
+      
+      clearTimeout(timeoutId)
 
       if (signInAttempt.status === 'complete') {
         await setActive({ session: signInAttempt.createdSessionId })
@@ -58,13 +64,16 @@ export default function SignInScreen() {
         Alert.alert("Sign-in incomplete", "Unable to complete sign-in. Please try again.")
       }
     } catch (err: any) {
-      console.error("Sign-in error:", JSON.stringify(err, null, 2))
+      clearTimeout(timeoutId)
+      
+      // Only log unexpected errors in development
+      if (__DEV__ && !err.errors) {
+        console.error("Sign-in error:", err)
+      }
 
-      // Handle Clerk-specific errors
       if (err.errors && err.errors.length > 0) {
         const error = err.errors[0]
         
-        // Handle specific error codes
         switch (error.code) {
           case 'form_identifier_not_found':
             Alert.alert("Account not found", "No account exists with this email address.")
