@@ -7,14 +7,18 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx --watch index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
   },
-  "keywords": [],
+  "keywords": ["chat", "express", "websocket", "postgresql", "mongodb", "clerk"],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "@clerk/express": "^1.7.65",
+    "@prisma/client": "^5.8.0",
     "@types/express": "^5.0.6",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
@@ -25,6 +29,8 @@
   },
   "devDependencies": {
     "@types/node": "^25.0.10",
+    "@types/cors": "^2.8.17",
+    "prisma": "^5.8.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
