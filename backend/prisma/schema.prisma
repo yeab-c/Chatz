@@ -12,7 +12,7 @@ model User {
   clerkId   String   @unique
   email     String   @unique
   name      String
-  avatar    String?  @default("")
+  avatar    String  @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
